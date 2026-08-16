@@ -11,18 +11,29 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 public final class ThrowerListScreen extends Screen {
-    private static final int WIDTH = 380;
-    private static final int HEIGHT = 320;
-    private static final int MARGIN = 16;
-    private static final int ROW_HEIGHT = 22;
-    private static final int SECTION_GAP = 12;
+    private static final int PANEL_WIDTH = 420;
+    private static final int PANEL_HEIGHT = 380;
+    private static final int HEADER_HEIGHT = 40;
+    private static final int GUI_BTN_HEIGHT = 22;
+    private static final int GUI_FIELD_HEIGHT = 18;
+    private static final int GUI_ROW_STEP = 34;
+    private static final int GUI_LABEL_GAP = 14;
+    private static final int GUI_SECTION_GAP = 8;
+
+    private static final int COLOR_BACKDROP_TOP = 0xE3070B10;
+    private static final int COLOR_BACKDROP_BOTTOM = 0xF111171E;
+    private static final int COLOR_PANEL = 0xF1151C24;
+    private static final int COLOR_PANEL_BORDER = 0xFF3A4A5C;
+    private static final int COLOR_PANEL_INNER = 0xF119222B;
+    private static final int COLOR_TITLE = 0xFFF4F8FB;
+    private static final int COLOR_TEXT = 0xFFDBE7F1;
+    private static final int COLOR_MUTED = 0xFF8FA7BC;
 
     private final Screen parent;
     private EditBox kickMessageField;
     private EditBox delayField;
     private EditBox addPlayerField;
-    private final AutoKickManager manager = AutoKickManager.INSTANCE;
-    private int listScroll = 0;
+    private int panelX, panelY, panelW, panelH, contentX, contentW, contentY;
 
     public ThrowerListScreen(Screen parent) {
         super(Component.literal("ThrowerList"));
@@ -31,62 +42,63 @@ public final class ThrowerListScreen extends Screen {
 
     @Override
     protected void init() {
-        int cx = (this.width - WIDTH) / 2;
-        int cy = (this.height - HEIGHT) / 2;
-        int x = cx + MARGIN;
-        int y = cy + MARGIN;
-        int fieldWidth = WIDTH - 2 * MARGIN;
+        this.panelW = Math.min(PANEL_WIDTH, Math.max(420, this.width - 24));
+        this.panelH = Math.min(PANEL_HEIGHT, Math.max(380, this.height - 24));
+        this.panelX = (this.width - this.panelW) / 2;
+        this.panelY = (this.height - this.panelH) / 2;
+        this.contentX = panelX + 16;
+        this.contentW = panelW - 32;
+        this.contentY = panelY + HEADER_HEIGHT + 8;
 
-        // Title handled in render
+        int y = contentY;
+        int fieldWidth = contentW;
 
-        // Section 1: Kick Message
-        y += 28;
-        kickMessageField = new EditBox(this.font, x, y, fieldWidth, 20, Component.literal("Kick Message"));
-        kickMessageField.setValue(ThrowerListConfig.kickMessage);
-        kickMessageField.setResponder(s -> ThrowerListConfig.kickMessage = s);
-        this.addRenderableWidget(kickMessageField);
-
-        y += ROW_HEIGHT + 4;
+        // Kick Message
+        kickMessageField = textField(contentX, y, fieldWidth, 100, ThrowerListConfig.kickMessage, s -> ThrowerListConfig.kickMessage = s);
+        y += GUI_ROW_STEP;
         this.addRenderableWidget(Button.builder(Component.literal("Reset to Default"), b -> resetMessage())
-            .bounds(x, y, fieldWidth, 18).build());
+            .bounds(contentX, y, 120, GUI_BTN_HEIGHT).build());
 
-        y += ROW_HEIGHT + SECTION_GAP;
+        y += GUI_ROW_STEP + GUI_SECTION_GAP;
 
-        // Section 2: Kick Delay
-        delayField = new EditBox(this.font, x, y, 100, 20, Component.literal("Delay"));
-        delayField.setValue(Integer.toString(ThrowerListConfig.kickDelayTicks));
-        delayField.setResponder(s -> { try { ThrowerListConfig.kickDelayTicks = Integer.parseInt(s); } catch (NumberFormatException ignored) {} });
-        this.addRenderableWidget(delayField);
-
-        y += ROW_HEIGHT + 4;
+        // Kick Delay
+        delayField = textField(contentX, y, 120, 5, Integer.toString(ThrowerListConfig.kickDelayTicks), s -> { try { ThrowerListConfig.kickDelayTicks = Integer.parseInt(s); } catch (NumberFormatException ignored) {} });
+        y += GUI_ROW_STEP;
         this.addRenderableWidget(Button.builder(Component.literal("Reset to Default"), b -> resetDelay())
-            .bounds(x, y, 100, 18).build());
+            .bounds(contentX, y, 120, GUI_BTN_HEIGHT).build());
 
-        y += ROW_HEIGHT + SECTION_GAP;
+        y += GUI_ROW_STEP + GUI_SECTION_GAP;
 
-        // Section 3: Remote URL
+        // Refresh Button
         this.addRenderableWidget(Button.builder(Component.literal("Refresh from GitHub"), b -> refreshRemote())
-            .bounds(x, y, fieldWidth, 20).build());
+            .bounds(contentX, y, contentW, GUI_BTN_HEIGHT).build());
 
-        y += ROW_HEIGHT + SECTION_GAP;
+        y += GUI_ROW_STEP + GUI_SECTION_GAP;
 
-        // Section 4: Add Player
-        addPlayerField = new EditBox(this.font, x, y, fieldWidth - 70, 20, Component.literal("Add player"));
-        this.addRenderableWidget(addPlayerField);
-
+        // Add Player
+        addPlayerField = textField(contentX, y, contentW - 70, 32, "", s -> {});
+        y += GUI_ROW_STEP;
         this.addRenderableWidget(Button.builder(Component.literal("Add"), b -> addPlayer())
-            .bounds(x + fieldWidth - 65, y, 60, 20).build());
+            .bounds(contentX + contentW - 65, y, 60, GUI_BTN_HEIGHT).build());
 
-        y += ROW_HEIGHT + SECTION_GAP;
+        y += GUI_ROW_STEP + GUI_SECTION_GAP;
 
-        // Section 5: Toggle + Save
+        // Toggle + Save
         this.addRenderableWidget(Button.builder(
             Component.literal(ThrowerListConfig.enabled ? "Enabled" : "Disabled"),
             b -> toggleEnabled())
-            .bounds(x, y, 110, 20).build());
+            .bounds(contentX, y, 110, GUI_BTN_HEIGHT).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Save & Close"), b -> onClose())
-            .bounds(x + fieldWidth - 100, y, 100, 20).build());
+            .bounds(contentX + contentW - 100, y, 100, GUI_BTN_HEIGHT).build());
+    }
+
+    private EditBox textField(int x, int y, int w, int maxLen, String initial, java.util.function.Consumer<String> onChange) {
+        EditBox field = this.addRenderableWidget(new EditBox(this.font, x, y, w, 18, Component.empty()));
+        field.setMaxLength(maxLen);
+        field.setValue(initial == null ? "" : initial);
+        field.setResponder(onChange);
+        return field;
     }
 
     private void addPlayer() {
@@ -94,7 +106,7 @@ public final class ThrowerListScreen extends Screen {
         if (name.isEmpty()) return;
         var uuid = AutoKickManager.resolveUuidFromTab(name);
         if (uuid != null) {
-            manager.add(uuid, name);
+            AutoKickManager.INSTANCE.add(uuid, name);
             addPlayerField.setValue("");
         }
     }
@@ -121,57 +133,50 @@ public final class ThrowerListScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        int cx = (this.width - WIDTH) / 2;
-        int cy = (this.height - HEIGHT) / 2;
-        int x = cx + MARGIN;
-        int y = cy + MARGIN;
+        // Backdrop
+        context.fillGradient(0, 0, this.width, this.height, 0xE3070B10, 0xF111171E);
 
-        // Background
-        context.fill(cx, cy, cx + WIDTH, cy + HEIGHT, 0xFF181824);
-        context.fill(cx, cy, cx + WIDTH, cy + 28, 0xFF0F141E);
+        // Panel
+        int panelX = this.panelX;
+        int panelY = this.panelY;
+        int panelW = this.panelW;
+        int panelH = this.panelH;
 
-        // Title
-        String titleText = "ThrowerList";
-        int titleWidth = this.font.width(titleText);
-        context.fill(cx + WIDTH / 2 - titleWidth / 2 - 8, cy + 6, cx + WIDTH / 2 + titleWidth / 2 + 8, cy + 22, 0x88000000);
-        context.text(this.font, Component.literal("ThrowerList"), cx + WIDTH / 2 - titleWidth / 2, cy + 10, 0xFF4FC3F7);
+        context.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xF1151C24);
+        context.fill(panelX + 1, panelY + 1, panelX + panelW - 1, panelY + panelH - 1, 0xF119222B);
+        context.fill(panelX, panelY, panelX + panelW, panelY + 1, 0xFF3A4A5C);
+        context.fill(panelX, panelY + panelH - 1, panelX + panelW, panelY + panelH, 0xFF3A4A5C);
+        context.fill(panelX, panelY, panelX + 1, panelY + panelH, 0xFF3A4A5C);
+        context.fill(panelX + panelW - 1, panelY, panelX + panelW, panelY + panelH, 0xFF3A4A5C);
 
-        // Subtitle
-        context.text(this.font, Component.literal("Auto-Kick List Manager"), cx + WIDTH / 2 - this.font.width("Auto-Kick List Manager") / 2, cy + HEIGHT - 10, 0xFF888888);
+        // Header
+        context.fill(panelX, panelY, panelX + panelW, panelY + 40, 0xF1151C24);
+        context.fill(panelX + 1, panelY + 1, panelX + panelW - 1, panelY + 39, 0xF119222B);
+        context.centeredText(this.font, this.title, this.width / 2, panelY + 12, 0xFFF4F8FB);
 
-        // Section headers and fields are rendered by widgets
-        // Just render section labels
-        int labelY = cy + MARGIN + 28 - 18;
-        context.text(this.font, Component.literal("§7Kick Message"), x, labelY, 0xFFBBBBBB);
+        // Labels above fields
+        if (kickMessageField != null) {
+            int x = kickMessageField.getX();
+            int y = kickMessageField.getY();
+            context.text(this.font, Component.literal("Kick Message").withStyle(net.minecraft.ChatFormatting.DARK_GREEN), x, y - 14, 0xFF8FA7BC);
+            context.text(this.font, Component.literal("Use <name> or {name> for player name").withStyle(net.minecraft.ChatFormatting.DARK_GRAY), x, y + 18 + 4, 0xFF888888);
+        }
+        if (delayField != null) {
+            int x = delayField.getX();
+            int y = delayField.getY();
+            context.text(this.font, Component.literal("Kick Delay (ticks)").withStyle(net.minecraft.ChatFormatting.DARK_GREEN), x, y - 14, 0xFF8FA7BC);
+        }
+        if (addPlayerField != null) {
+            int x = addPlayerField.getX();
+            int y = addPlayerField.getY();
+            context.text(this.font, Component.literal("Add Player (exact name)").withStyle(net.minecraft.ChatFormatting.DARK_GREEN), x, y - 14, 0xFF8FA7BC);
+        }
 
-        labelY = cy + MARGIN + 28 + ROW_HEIGHT + 4 + 20 + SECTION_GAP - 18;
-        context.text(this.font, Component.literal("§7Kick Delay (ticks)"), x, labelY, 0xFFBBBBBB);
-
-        labelY = labelY + ROW_HEIGHT + SECTION_GAP + 20 + SECTION_GAP - 18;
-        context.text(this.font, Component.literal("§7Remote UUIDs"), x, labelY, 0xFFBBBBBB);
-
-        labelY = labelY + ROW_HEIGHT + SECTION_GAP + 20 + SECTION_GAP - 18;
-        context.text(this.font, Component.literal("§7Add Player"), x, labelY, 0xFFBBBBBB);
-
-        // Hint for kick message
-        context.text(this.font, Component.literal("§8Use <name> or {name} for player name"), x, cy + MARGIN + 28 + 20 + 4, 0xFF777777);
-
-        // Status indicator
+        // Status
         String status = ThrowerListConfig.enabled ? "§aEnabled" : "§cDisabled";
-        context.text(this.font, Component.literal("Status: " + status), x, cy + HEIGHT - MARGIN - 30, 0xFFBBBBBB);
+        context.text(this.font, Component.literal("Status: " + status), this.contentX, panelY + panelH - 28, 0xFF8FA7BC);
 
         super.extractRenderState(context, mouseX, mouseY, delta);
-    }
-
-    @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (super.mouseClicked(click, doubled)) return true;
-        return false;
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        return false;
     }
 
     @Override
