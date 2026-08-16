@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "throwerlist",
+  "version": "1.0.0",
+  "name": "ThrowerList",
+  "description": "Auto-kick list for Hypixel SkyBlock dungeon parties",
+  "authors": ["dinob"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/throwerlist/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.dinob.throwerlist.ThrowerListClient"
+    ],
+    "main": [
+      "com.dinob.throwerlist.ThrowerListMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.14",
+    "minecraft": ">=26.1.2",
+    "fabric-api": "*"
+  }
+}
