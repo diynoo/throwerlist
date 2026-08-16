@@ -151,16 +151,16 @@ public final class ThrowerListClient implements ClientModInitializer {
     private static void sendFeedback(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String message) {
         Minecraft client = Minecraft.getInstance();
         if (client.player != null) {
-            client.player.sendSystemMessage(Component.literal("[DA] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
+            client.player.sendSystemMessage(Component.literal("[TL] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
                 .append(Component.literal(message).withStyle(net.minecraft.ChatFormatting.DARK_GREEN)));
         } else {
-            source.sendFeedback(Component.literal("[DA] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
+            source.sendFeedback(Component.literal("[TL] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
                 .append(Component.literal(message).withStyle(net.minecraft.ChatFormatting.DARK_GREEN)));
         }
     }
 
     private static void sendError(net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source, String message) {
-        source.sendError(Component.literal("[DA] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
+        source.sendError(Component.literal("[TL] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
             .append(Component.literal(message).withStyle(net.minecraft.ChatFormatting.RED)));
     }
 }

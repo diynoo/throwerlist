@@ -11,8 +11,11 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 public final class ThrowerListScreen extends Screen {
-    private static final int WIDTH = 320;
-    private static final int HEIGHT = 240;
+    private static final int WIDTH = 380;
+    private static final int HEIGHT = 320;
+    private static final int MARGIN = 16;
+    private static final int ROW_HEIGHT = 22;
+    private static final int SECTION_GAP = 12;
 
     private final Screen parent;
     private EditBox kickMessageField;
@@ -28,32 +31,62 @@ public final class ThrowerListScreen extends Screen {
 
     @Override
     protected void init() {
-        int x = (this.width - WIDTH) / 2;
-        int y = (this.height - HEIGHT) / 2;
+        int cx = (this.width - WIDTH) / 2;
+        int cy = (this.height - HEIGHT) / 2;
+        int x = cx + MARGIN;
+        int y = cy + MARGIN;
+        int fieldWidth = WIDTH - 2 * MARGIN;
 
-        kickMessageField = new EditBox(this.font, x + 10, y + 30, 300, 18, Component.literal("Kick Message"));
+        // Title handled in render
+
+        // Section 1: Kick Message
+        y += 28;
+        kickMessageField = new EditBox(this.font, x, y, fieldWidth, 20, Component.literal("Kick Message"));
         kickMessageField.setValue(ThrowerListConfig.kickMessage);
         kickMessageField.setResponder(s -> ThrowerListConfig.kickMessage = s);
         this.addRenderableWidget(kickMessageField);
 
-        delayField = new EditBox(this.font, x + 10, y + 55, 80, 18, Component.literal("Delay"));
+        y += ROW_HEIGHT + 4;
+        this.addRenderableWidget(Button.builder(Component.literal("Reset to Default"), b -> resetMessage())
+            .bounds(x, y, fieldWidth, 18).build());
+
+        y += ROW_HEIGHT + SECTION_GAP;
+
+        // Section 2: Kick Delay
+        delayField = new EditBox(this.font, x, y, 100, 20, Component.literal("Delay"));
         delayField.setValue(Integer.toString(ThrowerListConfig.kickDelayTicks));
         delayField.setResponder(s -> { try { ThrowerListConfig.kickDelayTicks = Integer.parseInt(s); } catch (NumberFormatException ignored) {} });
         this.addRenderableWidget(delayField);
 
-        addPlayerField = new EditBox(this.font, x + 10, y + 180, 230, 18, Component.literal("Add player"));
+        y += ROW_HEIGHT + 4;
+        this.addRenderableWidget(Button.builder(Component.literal("Reset to Default"), b -> resetDelay())
+            .bounds(x, y, 100, 18).build());
+
+        y += ROW_HEIGHT + SECTION_GAP;
+
+        // Section 3: Remote URL
+        this.addRenderableWidget(Button.builder(Component.literal("Refresh from GitHub"), b -> refreshRemote())
+            .bounds(x, y, fieldWidth, 20).build());
+
+        y += ROW_HEIGHT + SECTION_GAP;
+
+        // Section 4: Add Player
+        addPlayerField = new EditBox(this.font, x, y, fieldWidth - 70, 20, Component.literal("Add player"));
         this.addRenderableWidget(addPlayerField);
 
         this.addRenderableWidget(Button.builder(Component.literal("Add"), b -> addPlayer())
-            .bounds(x + 250, y + 180, 60, 18).build());
+            .bounds(x + fieldWidth - 65, y, 60, 20).build());
 
+        y += ROW_HEIGHT + SECTION_GAP;
+
+        // Section 5: Toggle + Save
         this.addRenderableWidget(Button.builder(
             Component.literal(ThrowerListConfig.enabled ? "Enabled" : "Disabled"),
             b -> toggleEnabled())
-            .bounds(x + 10, y + 205, 100, 18).build());
+            .bounds(x, y, 110, 20).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("Save & Close"), b -> onClose())
-            .bounds(x + 220, y + 205, 90, 18).build());
+            .bounds(x + fieldWidth - 100, y, 100, 20).build());
     }
 
     private void addPlayer() {
@@ -72,39 +105,60 @@ public final class ThrowerListScreen extends Screen {
         init();
     }
 
+    private void resetMessage() {
+        ThrowerListConfig.kickMessage = "autokicked <name>";
+        if (kickMessageField != null) kickMessageField.setValue(ThrowerListConfig.kickMessage);
+    }
+
+    private void resetDelay() {
+        ThrowerListConfig.kickDelayTicks = 20;
+        if (delayField != null) delayField.setValue("20");
+    }
+
+    private void refreshRemote() {
+        AutoKickManager.INSTANCE.refreshRemoteAsync();
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        int x = (this.width - WIDTH) / 2;
-        int y = (this.height - HEIGHT) / 2;
+        int cx = (this.width - WIDTH) / 2;
+        int cy = (this.height - HEIGHT) / 2;
+        int x = cx + MARGIN;
+        int y = cy + MARGIN;
 
-        context.fill(x, y, x + WIDTH, y + HEIGHT, 0xFF1A1A2E);
-        context.fill(x, y, x + WIDTH, y + 24, 0xFF16213E);
-        context.text(this.font, this.title, x + WIDTH / 2 - this.font.width(this.title.getString()) / 2, y + 6, 0xFFFFFFFF);
+        // Background
+        context.fill(cx, cy, cx + WIDTH, cy + HEIGHT, 0xFF181824);
+        context.fill(cx, cy, cx + WIDTH, cy + 28, 0xFF0F141E);
 
-        context.text(this.font, Component.literal("Kick Message"), x + 10, y + 20, 0xFFAAAAAA);
-        context.text(this.font, Component.literal("Use <name> or {name> for player"), x + 10, y + 78, 0xFF888888);
-        context.text(this.font, Component.literal("Kick Delay (ticks)"), x + 10, y + 50, 0xFFAAAAAA);
+        // Title
+        String titleText = "ThrowerList";
+        int titleWidth = this.font.width(titleText);
+        context.fill(cx + WIDTH / 2 - titleWidth / 2 - 8, cy + 6, cx + WIDTH / 2 + titleWidth / 2 + 8, cy + 22, 0x88000000);
+        context.text(this.font, Component.literal("ThrowerList"), cx + WIDTH / 2 - titleWidth / 2, cy + 10, 0xFF4FC3F7);
 
-        int listY = y + 100;
-        int listHeight = 100;
-        context.fill(x + 10, listY, x + 310, listY + listHeight, 0xFF0F0F1A);
+        // Subtitle
+        context.text(this.font, Component.literal("Auto-Kick List Manager"), cx + WIDTH / 2 - this.font.width("Auto-Kick List Manager") / 2, cy + HEIGHT - 10, 0xFF888888);
 
-        var uuids = manager.getLocalUuids();
-        int i = 0;
-        for (var uuid : uuids) {
-            if (i < listScroll) { i++; continue; }
-            int rowY = listY + 2 + (i - listScroll) * 18;
-            if (rowY > listY + listHeight - 18) break;
+        // Section headers and fields are rendered by widgets
+        // Just render section labels
+        int labelY = cy + MARGIN + 28 - 18;
+        context.text(this.font, Component.literal("§7Kick Message"), x, labelY, 0xFFBBBBBB);
 
-            String name = manager.getName(uuid);
-            context.text(this.font, Component.literal("§e" + name + " §7(" + uuid + ")"), x + 14, rowY, 0xFFFFFFFF);
+        labelY = cy + MARGIN + 28 + ROW_HEIGHT + 4 + 20 + SECTION_GAP - 18;
+        context.text(this.font, Component.literal("§7Kick Delay (ticks)"), x, labelY, 0xFFBBBBBB);
 
-            int btnX = x + 266;
-            context.fill(btnX - 2, rowY - 1, btnX + 40, rowY + 15, 0xFF333344);
-            context.text(this.font, Component.literal("Remove"), btnX, rowY + 2, 0xFFFF5555);
+        labelY = labelY + ROW_HEIGHT + SECTION_GAP + 20 + SECTION_GAP - 18;
+        context.text(this.font, Component.literal("§7Remote UUIDs"), x, labelY, 0xFFBBBBBB);
 
-            i++;
-        }
+        labelY = labelY + ROW_HEIGHT + SECTION_GAP + 20 + SECTION_GAP - 18;
+        context.text(this.font, Component.literal("§7Add Player"), x, labelY, 0xFFBBBBBB);
+
+        // Hint for kick message
+        context.text(this.font, Component.literal("§8Use <name> or {name} for player name"), x, cy + MARGIN + 28 + 20 + 4, 0xFF777777);
+
+        // Status indicator
+        String status = ThrowerListConfig.enabled ? "§aEnabled" : "§cDisabled";
+        context.text(this.font, Component.literal("Status: " + status), x, cy + HEIGHT - MARGIN - 30, 0xFFBBBBBB);
 
         super.extractRenderState(context, mouseX, mouseY, delta);
     }
@@ -112,32 +166,12 @@ public final class ThrowerListScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         if (super.mouseClicked(click, doubled)) return true;
-
-        int x = (this.width - WIDTH) / 2;
-        int y = (this.height - HEIGHT) / 2;
-        var uuids = manager.getLocalUuids();
-        int i = 0;
-        int listY = y + 100;
-        for (var uuid : uuids) {
-            if (i < listScroll) { i++; continue; }
-            int rowY = listY + 2 + (i - listScroll) * 18;
-            int btnX = x + 266 - 2;
-            if (click.x() >= btnX && click.x() <= btnX + 40 && click.y() >= rowY - 1 && click.y() <= rowY + 15) {
-                manager.remove(uuid);
-                return true;
-            }
-            if (rowY > listY + 120) break;
-            i++;
-        }
         return false;
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        int maxScroll = Math.max(0, manager.getLocalUuids().size() - 5);
-        if (vertical < 0) listScroll = Math.min(listScroll + 1, maxScroll);
-        else if (vertical > 0) listScroll = Math.max(listScroll - 1, 0);
-        return true;
+        return false;
     }
 
     @Override
