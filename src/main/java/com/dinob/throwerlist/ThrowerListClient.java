@@ -7,8 +7,8 @@ import com.dinob.throwerlist.gui.ThrowerListScreen;
 import com.dinob.throwerlist.util.KeyBindingTokenUtil;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.network.chat.Component;
@@ -81,7 +81,7 @@ public final class ThrowerListClient implements ClientModInitializer {
             var uuid = AutoKickManager.resolveUuidFromTab(name);
             if (uuid != null) {
                 AutoKickManager.INSTANCE.add(uuid, name);
-                sendFeedback(ctx.getSource(), "§aAdded " + name + " (" + uuid + ") to ThrowerList");
+                sendFeedback(ctx.getSource(), "§aAdded " + name + " to ThrowerList");
             } else {
                 sendError(ctx.getSource(), "§cPlayer " + name + " not found in tab list");
             }
@@ -116,7 +116,7 @@ public final class ThrowerListClient implements ClientModInitializer {
                 sendFeedback(ctx.getSource(), "§a§lLocal:");
                 for (var uuid : localUuids) {
                     String name = AutoKickManager.INSTANCE.getName(uuid);
-                    sendFeedback(ctx.getSource(), "§7 - " + name + " §8(" + uuid + ")");
+                    sendFeedback(ctx.getSource(), "§7 - " + name);
                 }
             }
             
@@ -124,7 +124,7 @@ public final class ThrowerListClient implements ClientModInitializer {
                 sendFeedback(ctx.getSource(), "§b§lRemote:");
                 for (var uuid : remoteUuids) {
                     String name = AutoKickManager.INSTANCE.getName(uuid);
-                    sendFeedback(ctx.getSource(), "§7 - " + name + " §8(" + uuid + ")");
+                    sendFeedback(ctx.getSource(), "§7 - " + name);
                 }
             }
         }
