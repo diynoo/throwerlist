@@ -20,11 +20,22 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public final class AutoKickManager {
     public static final AutoKickManager INSTANCE = new AutoKickManager();
+
+    private static final Pattern PARTY_JOIN_PATTERN = Pattern.compile(
+        "(?:\\[[^\\]]+\\]\\s*)*([A-Za-z0-9_]{3,16})\\s+joined\\s+the\\s+party\\.?$",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern DUNGEON_JOIN_PATTERN = Pattern.compile(
+        "(?:\\[[^\\]]+\\]\\s*)*([A-Za-z0-9_]{3,16})\\s+joined\\s+the\\s+dungeon\\s+group!\\s*(?:\\([^)]*\\))?$",
+        Pattern.CASE_INSENSITIVE
+    );
 
     private final Map<UUID, String> nameCache = new LinkedHashMap<>();
     private final Set<UUID> localUuids = ConcurrentHashMap.newKeySet();
@@ -110,12 +121,23 @@ public final class AutoKickManager {
         if (!pendingKicks.isEmpty()) {
             pendingKicks.entrySet().removeIf(entry -> {
                 PendingKick pk = entry.getValue();
-                if (--pk.ticksRemaining > 0) return false;
                 if (!ThrowerListConfig.enabled) return true;
 
-                String msg = buildKickMessage(pk.name);
-                if (!msg.isBlank()) client.player.connection.sendCommand("pc " + msg);
+                if (!pk.pcSent) {
+                    String msg = buildKickMessage(pk.name);
+                    if (!msg.isBlank()) {
+                        client.player.connection.sendCommand("pc " + msg);
+                        sendDebug("Sent /pc " + msg);
+                    }
+                    pk.pcSent = true;
+                    pk.ticksRemaining = ThrowerListConfig.kickDelayTicks;
+                    return false;
+                }
+
+                if (--pk.ticksRemaining > 0) return false;
+
                 client.player.connection.sendCommand("p kick " + pk.name);
+                sendDebug("Sent /p kick " + pk.name);
                 return true;
             });
         }
@@ -129,6 +151,84 @@ public final class AutoKickManager {
         if (shouldKick && !pendingKicks.containsKey(uuid)) {
             pendingKicks.put(uuid, new PendingKick(name, ThrowerListConfig.kickDelayTicks));
         }
+    }
+
+    public void onChatMessage(String message) {
+        if (message == null || message.isBlank()) return;
+
+        boolean isCopiedMessage = isPlayerChatMessage(message);
+        if (isCopiedMessage && !ThrowerListConfig.debug) {
+            sendDebug("Ignoring copied trigger message: " + message);
+            return;
+        }
+        if (isCopiedMessage) {
+            sendDebug("Debug mode: allowing copied trigger message: " + message);
+        }
+
+        String name = parseJoinName(message);
+        if (name == null) return;
+
+        UUID uuid = resolveUuidFromTab(name);
+        if (uuid != null) {
+            onPlayerJoin(name, uuid);
+            return;
+        }
+        resolveUuidFromNameAsync(name, resolved -> {
+            if (resolved != null) {
+                onPlayerJoin(name, resolved);
+            }
+        });
+    }
+
+    public void onGameMessage(String message) {
+        if (message == null || message.isBlank()) return;
+        String name = parseJoinName(message);
+        if (name == null) return;
+
+        UUID uuid = resolveUuidFromTab(name);
+        if (uuid != null) {
+            onPlayerJoin(name, uuid);
+            return;
+        }
+        resolveUuidFromNameAsync(name, resolved -> {
+            if (resolved != null) {
+                onPlayerJoin(name, resolved);
+            }
+        });
+    }
+
+    public void onPlayerChatMessage(String message) {
+        if (message == null || message.isBlank()) return;
+        if (!ThrowerListConfig.debug) {
+            sendDebug("Ignoring player chat message (debug off): " + message);
+            return;
+        }
+        sendDebug("Debug mode: scanning player chat message: " + message);
+        onChatMessage(message);
+    }
+
+    private static boolean isPlayerChatMessage(String message) {
+        int colonIdx = message.indexOf(": ");
+        if (colonIdx <= 0) return false;
+        String prefix = message.substring(0, colonIdx);
+        return prefix.matches(".*\\[[^\\]]+\\].*[A-Za-z0-9_]{3,16}");
+    }
+
+    private static String parseJoinName(String message) {
+        String normalized = message;
+        int finderIdx = normalized.indexOf("Party Finder >");
+        if (finderIdx >= 0) {
+            normalized = normalized.substring(finderIdx + "Party Finder >".length());
+        }
+        Matcher party = PARTY_JOIN_PATTERN.matcher(normalized);
+        if (party.find()) {
+            return party.group(1);
+        }
+        Matcher dungeon = DUNGEON_JOIN_PATTERN.matcher(normalized);
+        if (dungeon.find()) {
+            return dungeon.group(1);
+        }
+        return null;
     }
 
     public void refreshRemoteAsync() {
@@ -294,7 +394,19 @@ public final class AutoKickManager {
 
     private static class PendingKick {
         final String name;
+        boolean pcSent = false;
         int ticksRemaining;
         PendingKick(String name, int ticks) { this.name = name; this.ticksRemaining = ticks; }
+    }
+
+    private void sendDebug(String message) {
+        if (!ThrowerListConfig.debug) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null) {
+            client.execute(() -> client.player.sendSystemMessage(
+                Component.literal("[TL] ").withStyle(net.minecraft.ChatFormatting.YELLOW)
+                    .append(Component.literal(message).withStyle(net.minecraft.ChatFormatting.YELLOW))
+            ));
+        }
     }
 }

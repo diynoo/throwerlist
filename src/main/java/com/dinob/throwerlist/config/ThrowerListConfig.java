@@ -13,11 +13,13 @@ public final class ThrowerListConfig {
     private static final String DELAY_PROP = "kickDelayTicks";
     private static final String AUTO_REFRESH_PROP = "autoRefreshRemote";
     private static final String REMOTE_URL_PROP = "remoteUrl";
+    private static final String DEBUG_PROP = "debug";
 
     public static boolean enabled = true;
     public static String kickMessage = "autokicked <name>";
     public static int kickDelayTicks = 20;
     public static boolean autoRefreshRemote = true;
+    public static boolean debug = false;
     public static final String DEFAULT_REMOTE_URL = "https://raw.githubusercontent.com/diynoo/throwerlist/main/uuids.txt";
     public static String remoteUrl = DEFAULT_REMOTE_URL;
 
@@ -37,6 +39,7 @@ public final class ThrowerListConfig {
             kickDelayTicks = Integer.parseInt(props.getProperty(DELAY_PROP, "20"));
             autoRefreshRemote = Boolean.parseBoolean(props.getProperty(AUTO_REFRESH_PROP, "true"));
             remoteUrl = props.getProperty(REMOTE_URL_PROP, DEFAULT_REMOTE_URL);
+            debug = Boolean.parseBoolean(props.getProperty(DEBUG_PROP, "false"));
             if (remoteUrl.contains("YOUR_USERNAME") || remoteUrl.contains("YOUR_")) {
                 remoteUrl = DEFAULT_REMOTE_URL;
             }
@@ -54,6 +57,7 @@ public final class ThrowerListConfig {
             props.setProperty(DELAY_PROP, Integer.toString(kickDelayTicks));
             props.setProperty(AUTO_REFRESH_PROP, Boolean.toString(autoRefreshRemote));
             props.setProperty(REMOTE_URL_PROP, remoteUrl);
+            props.setProperty(DEBUG_PROP, Boolean.toString(debug));
             try (Writer writer = Files.newBufferedWriter(configFile)) {
                 props.store(writer, "ThrowerList Configuration");
             }

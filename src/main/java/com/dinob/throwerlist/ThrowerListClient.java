@@ -9,6 +9,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.Minecraft;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.network.chat.Component;
@@ -33,6 +34,17 @@ public final class ThrowerListClient implements ClientModInitializer {
             }
         });
 
+        ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+            if (message != null) {
+                AutoKickManager.INSTANCE.onGameMessage(message.getString());
+            }
+        });
+        ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> {
+            if (message != null) {
+                AutoKickManager.INSTANCE.onPlayerChatMessage(message.getString());
+            }
+        });
+
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             var root = literal("throwerlist")
                 .executes(ctx -> {
@@ -51,6 +63,8 @@ public final class ThrowerListClient implements ClientModInitializer {
                     .executes(ctx -> listPlayers(ctx)))
                 .then(literal("toggle")
                     .executes(ctx -> toggleEnabled(ctx)))
+                .then(literal("debug")
+                    .executes(ctx -> toggleDebug(ctx)))
                 .then(literal("message")
                     .then(argument("msg", StringArgumentType.greedyString())
                         .executes(ctx -> setMessage(ctx, StringArgumentType.getString(ctx, "msg")))))
@@ -58,7 +72,31 @@ public final class ThrowerListClient implements ClientModInitializer {
                     .executes(ctx -> refreshRemote(ctx)));
 
             var rootNode = dispatcher.register(root);
-            dispatcher.register(literal("tl").redirect(rootNode));
+            var tlNode = literal("tl")
+                .executes(ctx -> {
+                    Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new ThrowerListScreen(null)));
+                    return 1;
+                })
+                .then(literal("help")
+                    .executes(ctx -> showHelp(ctx)))
+                .then(literal("add")
+                    .then(argument("player", StringArgumentType.word())
+                        .executes(ctx -> addPlayer(ctx, StringArgumentType.getString(ctx, "player")))))
+                .then(literal("remove")
+                    .then(argument("player", StringArgumentType.word())
+                        .executes(ctx -> removePlayer(ctx, StringArgumentType.getString(ctx, "player")))))
+                .then(literal("list")
+                    .executes(ctx -> listPlayers(ctx)))
+                .then(literal("toggle")
+                    .executes(ctx -> toggleEnabled(ctx)))
+                .then(literal("debug")
+                    .executes(ctx -> toggleDebug(ctx)))
+                .then(literal("message")
+                    .then(argument("msg", StringArgumentType.greedyString())
+                        .executes(ctx -> setMessage(ctx, StringArgumentType.getString(ctx, "msg")))))
+                .then(literal("refresh")
+                    .executes(ctx -> refreshRemote(ctx)));
+            dispatcher.register(tlNode);
         });
     }
 
@@ -70,6 +108,7 @@ public final class ThrowerListClient implements ClientModInitializer {
         sendFeedback(ctx.getSource(), "§7/tl remove <player> §r- Remove player from kick list");
         sendFeedback(ctx.getSource(), "§7/tl list §r- Show all players in list");
         sendFeedback(ctx.getSource(), "§7/tl toggle §r- Enable/disable auto-kick");
+        sendFeedback(ctx.getSource(), "§7/tl debug §r- Toggle debug mode (shows commands sent)");
         sendFeedback(ctx.getSource(), "§7/tl message <msg> §r- Set kick message (use <name>)");
         sendFeedback(ctx.getSource(), "§7/tl refresh §r- Fetch remote UUIDs from GitHub");
         return 1;
@@ -143,6 +182,15 @@ public final class ThrowerListClient implements ClientModInitializer {
         ThrowerListConfig.enabled = enabled;
         ThrowerListConfig.save();
         sendFeedback(ctx.getSource(), "§aThrowerList " + (enabled ? "enabled" : "disabled"));
+        return 1;
+    }
+
+    private static int toggleDebug(com.mojang.brigadier.context.CommandContext<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> ctx) {
+        boolean debug = !ThrowerListConfig.debug;
+        ThrowerListConfig.debug = debug;
+        ThrowerListConfig.save();
+        sendFeedback(ctx.getSource(), "§aDebug mode " + (debug ? "enabled" : "disabled") + " - " +
+            (debug ? "command output shown, copied trigger messages allowed" : "command output hidden, copied trigger messages ignored"));
         return 1;
     }
 
