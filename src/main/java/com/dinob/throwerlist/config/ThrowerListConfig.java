@@ -18,7 +18,8 @@ public final class ThrowerListConfig {
     public static String kickMessage = "autokicked <name>";
     public static int kickDelayTicks = 20;
     public static boolean autoRefreshRemote = true;
-    public static String remoteUrl = "https://raw.githubusercontent.com/diynoo/throwerlist/main/uuids.txt";
+    public static final String DEFAULT_REMOTE_URL = "https://raw.githubusercontent.com/diynoo/throwerlist/main/uuids.txt";
+    public static String remoteUrl = DEFAULT_REMOTE_URL;
 
     private static Path configFile;
 
@@ -35,7 +36,10 @@ public final class ThrowerListConfig {
             kickMessage = props.getProperty(KICK_MSG_PROP, "autokicked <name>");
             kickDelayTicks = Integer.parseInt(props.getProperty(DELAY_PROP, "20"));
             autoRefreshRemote = Boolean.parseBoolean(props.getProperty(AUTO_REFRESH_PROP, "true"));
-            remoteUrl = props.getProperty(REMOTE_URL_PROP, "https://raw.githubusercontent.com/diynoo/throwerlist/main/uuids.txt");
+            remoteUrl = props.getProperty(REMOTE_URL_PROP, DEFAULT_REMOTE_URL);
+            if (remoteUrl.contains("YOUR_USERNAME") || remoteUrl.contains("YOUR_")) {
+                remoteUrl = DEFAULT_REMOTE_URL;
+            }
         } catch (IOException ignored) {
             save();
         }

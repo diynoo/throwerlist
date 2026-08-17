@@ -33,31 +33,30 @@ public final class ThrowerListClient implements ClientModInitializer {
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            var root = literal("throwerlist");
+            var root = literal("throwerlist")
+                .executes(ctx -> {
+                    Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new ThrowerListScreen(null)));
+                    return 1;
+                })
+                .then(literal("help")
+                    .executes(ctx -> showHelp(ctx)))
+                .then(literal("add")
+                    .then(argument("player", StringArgumentType.word())
+                        .executes(ctx -> addPlayer(ctx, StringArgumentType.getString(ctx, "player")))))
+                .then(literal("remove")
+                    .then(argument("player", StringArgumentType.word())
+                        .executes(ctx -> removePlayer(ctx, StringArgumentType.getString(ctx, "player")))))
+                .then(literal("list")
+                    .executes(ctx -> listPlayers(ctx)))
+                .then(literal("toggle")
+                    .executes(ctx -> toggleEnabled(ctx)))
+                .then(literal("message")
+                    .then(argument("msg", StringArgumentType.greedyString())
+                        .executes(ctx -> setMessage(ctx, StringArgumentType.getString(ctx, "msg")))))
+                .then(literal("refresh")
+                    .executes(ctx -> refreshRemote(ctx)));
+
             var rootNode = dispatcher.register(root);
-
-            root.executes(ctx -> {
-                Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new ThrowerListScreen(null)));
-                return 1;
-            })
-            .then(literal("help")
-                .executes(ctx -> showHelp(ctx)))
-            .then(literal("add")
-                .then(argument("player", StringArgumentType.word())
-                    .executes(ctx -> addPlayer(ctx, StringArgumentType.getString(ctx, "player")))))
-            .then(literal("remove")
-                .then(argument("player", StringArgumentType.word())
-                    .executes(ctx -> removePlayer(ctx, StringArgumentType.getString(ctx, "player")))))
-            .then(literal("list")
-                .executes(ctx -> listPlayers(ctx)))
-            .then(literal("toggle")
-                .executes(ctx -> toggleEnabled(ctx)))
-            .then(literal("message")
-                .then(argument("msg", StringArgumentType.greedyString())
-                    .executes(ctx -> setMessage(ctx, StringArgumentType.getString(ctx, "msg")))))
-            .then(literal("refresh")
-                .executes(ctx -> refreshRemote(ctx)));
-
             dispatcher.register(literal("tl").redirect(rootNode));
         });
     }
