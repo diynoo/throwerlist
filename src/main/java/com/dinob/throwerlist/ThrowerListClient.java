@@ -14,6 +14,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import com.mojang.blaze3d.platform.InputConstants;
+import java.util.Set;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument;
@@ -75,30 +76,25 @@ public final class ThrowerListClient implements ClientModInitializer {
     }
 
     private static int addPlayer(com.mojang.brigadier.context.CommandContext<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> ctx, String name) {
-        Minecraft client = Minecraft.getInstance();
-        if (client.player != null && client.level != null) {
-            var uuid = AutoKickManager.resolveUuidFromTab(name);
+        AutoKickManager.INSTANCE.resolveUuidFromNameAsync(name, uuid -> {
             if (uuid != null) {
                 AutoKickManager.INSTANCE.add(uuid, name);
                 sendFeedback(ctx.getSource(), "§aAdded " + name + " to ThrowerList");
             } else {
-                sendError(ctx.getSource(), "§cPlayer " + name + " not found in tab list");
+                sendError(ctx.getSource(), "§cCould not find player " + name);
             }
-        }
+        });
         return 1;
     }
 
     private static int removePlayer(com.mojang.brigadier.context.CommandContext<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> ctx, String name) {
-        Minecraft client = Minecraft.getInstance();
-        if (client.player != null && client.level != null) {
-            var uuid = AutoKickManager.resolveUuidFromTab(name);
-            if (uuid != null) {
-                AutoKickManager.INSTANCE.remove(uuid);
+        AutoKickManager.INSTANCE.removeByName(name, removed -> {
+            if (removed) {
                 sendFeedback(ctx.getSource(), "§aRemoved " + name + " from ThrowerList");
             } else {
-                sendError(ctx.getSource(), "§cPlayer " + name + " not found in tab list");
+                sendError(ctx.getSource(), "§cPlayer " + name + " not found in ThrowerList");
             }
-        }
+        });
         return 1;
     }
 
@@ -108,29 +104,37 @@ public final class ThrowerListClient implements ClientModInitializer {
         
         if (localUuids.isEmpty() && remoteUuids.isEmpty()) {
             sendFeedback(ctx.getSource(), "§7ThrowerList is empty");
-        } else {
+            return 1;
+        }
+
+        Set<java.util.UUID> all = new java.util.LinkedHashSet<>();
+        all.addAll(localUuids);
+        all.addAll(remoteUuids);
+
+        AutoKickManager.INSTANCE.resolveNamesAsync(all, resolved -> {
             sendFeedback(ctx.getSource(), "§eThrowerList (Local: " + localUuids.size() + ", Remote: " + remoteUuids.size() + "):");
-            
+
             if (!localUuids.isEmpty()) {
                 sendFeedback(ctx.getSource(), "§a§lLocal:");
                 for (var uuid : localUuids) {
-                    String name = AutoKickManager.INSTANCE.resolveName(uuid);
+                    String name = resolved.get(uuid);
                     if (name != null) {
                         sendFeedback(ctx.getSource(), "§7 - " + name);
                     }
                 }
             }
-            
+
             if (!remoteUuids.isEmpty()) {
                 sendFeedback(ctx.getSource(), "§b§lRemote:");
                 for (var uuid : remoteUuids) {
-                    String name = AutoKickManager.INSTANCE.resolveName(uuid);
+                    String name = resolved.get(uuid);
                     if (name != null) {
                         sendFeedback(ctx.getSource(), "§7 - " + name);
                     }
                 }
             }
-        }
+        });
+        sendFeedback(ctx.getSource(), "§7Resolving names...");
         return 1;
     }
 

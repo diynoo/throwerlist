@@ -19,6 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public final class AutoKickManager {
     public static final AutoKickManager INSTANCE = new AutoKickManager();
@@ -26,6 +29,7 @@ public final class AutoKickManager {
     private final Map<UUID, String> nameCache = new LinkedHashMap<>();
     private final Set<UUID> localUuids = ConcurrentHashMap.newKeySet();
     private final Set<UUID> remoteUuids = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> blacklistUuids = ConcurrentHashMap.newKeySet();
     private final Map<UUID, PendingKick> pendingKicks = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -41,7 +45,11 @@ public final class AutoKickManager {
     public void load() {
         localUuids.clear();
         localUuids.addAll(AutoKickStore.loadLocalUuids());
-        
+        remoteUuids.clear();
+        remoteUuids.addAll(AutoKickStore.loadRemoteUuids());
+        blacklistUuids.clear();
+        blacklistUuids.addAll(AutoKickStore.loadBlacklistUuids());
+
         if (ThrowerListConfig.autoRefreshRemote) {
             refreshRemoteAsync();
             executor.scheduleAtFixedRate(this::refreshRemoteAsync, 10, 30, TimeUnit.MINUTES);
@@ -65,8 +73,35 @@ public final class AutoKickManager {
     public void remove(UUID uuid) {
         if (uuid == null) return;
         localUuids.remove(uuid);
+        if (remoteUuids.remove(uuid)) {
+            blacklistUuids.add(uuid);
+            saveBlacklistQuietly();
+        }
         nameCache.remove(uuid);
         saveQuietly();
+        saveRemoteQuietly();
+    }
+
+    public void removeByName(String name, Consumer<Boolean> callback) {
+        if (name == null || name.isBlank()) {
+            Minecraft.getInstance().execute(() -> callback.accept(false));
+            return;
+        }
+        String clean = name.trim();
+        Set<UUID> all = new LinkedHashSet<>();
+        all.addAll(localUuids);
+        all.addAll(remoteUuids);
+        resolveNamesAsync(all, resolved -> {
+            boolean removedAny = false;
+            for (Map.Entry<UUID, String> entry : resolved.entrySet()) {
+                String resolvedName = entry.getValue();
+                if (resolvedName != null && resolvedName.equalsIgnoreCase(clean)) {
+                    remove(entry.getKey());
+                    removedAny = true;
+                }
+            }
+            callback.accept(removedAny);
+        });
     }
 
     public void tick(Minecraft client) {
@@ -111,8 +146,15 @@ public final class AutoKickManager {
                     }
                     synchronized (remoteUuids) {
                         remoteUuids.clear();
-                        remoteUuids.addAll(fetched);
+                        for (UUID uuid : fetched) {
+                            if (!blacklistUuids.contains(uuid)) {
+                                remoteUuids.add(uuid);
+                            }
+                        }
                     }
+                    try {
+                        AutoKickStore.saveRemoteUuids(remoteUuids);
+                    } catch (IOException ignored) {}
                     Minecraft client = Minecraft.getInstance();
                     if (client.player != null) {
                         client.execute(() -> client.player.sendSystemMessage(
@@ -153,6 +195,38 @@ public final class AutoKickManager {
         return null;
     }
 
+    public void resolveNamesAsync(Set<UUID> uuids, Consumer<Map<UUID, String>> callback) {
+        executor.submit(() -> {
+            Map<UUID, String> resolved = new LinkedHashMap<>();
+            for (UUID uuid : uuids) {
+                String name = resolveName(uuid);
+                if (name == null) {
+                    name = fetchNameFromMojang(uuid);
+                }
+                if (name != null) {
+                    nameCache.put(uuid, name);
+                    resolved.put(uuid, name);
+                }
+            }
+            Minecraft client = Minecraft.getInstance();
+            client.execute(() -> callback.accept(resolved));
+        });
+    }
+
+    private static String fetchNameFromMojang(UUID uuid) {
+        try {
+            String compact = uuid.toString().replace("-", "");
+            URL url = new URL("https://sessionserver.mojang.com/session/minecraft/profile/" + compact);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
+                JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+                if (obj.has("name")) {
+                    return obj.get("name").getAsString();
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     public static UUID resolveUuidFromTab(String name) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) return null;
@@ -162,6 +236,32 @@ public final class AutoKickManager {
                 return info.getProfile().id();
             }
         }
+        return null;
+    }
+
+    public void resolveUuidFromNameAsync(String name, Consumer<UUID> callback) {
+        executor.submit(() -> {
+            UUID uuid = resolveUuidFromTab(name);
+            if (uuid == null) {
+                uuid = fetchUuidFromMojang(name);
+            }
+            UUID finalUuid = uuid;
+            Minecraft client = Minecraft.getInstance();
+            client.execute(() -> callback.accept(finalUuid));
+        });
+    }
+
+    private static UUID fetchUuidFromMojang(String name) {
+        try {
+            URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
+                JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
+                if (obj.has("id")) {
+                    String id = obj.get("id").getAsString();
+                    return parseUuid(id);
+                }
+            }
+        } catch (Exception ignored) {}
         return null;
     }
 
@@ -176,6 +276,14 @@ public final class AutoKickManager {
 
     private void saveQuietly() {
         try { AutoKickStore.saveLocalUuids(localUuids); } catch (IOException ignored) {}
+    }
+
+    private void saveRemoteQuietly() {
+        try { AutoKickStore.saveRemoteUuids(remoteUuids); } catch (IOException ignored) {}
+    }
+
+    private void saveBlacklistQuietly() {
+        try { AutoKickStore.saveBlacklistUuids(blacklistUuids); } catch (IOException ignored) {}
     }
 
     private String buildKickMessage(String name) {

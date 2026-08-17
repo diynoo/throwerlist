@@ -18,12 +18,37 @@ import java.util.UUID;
 public final class AutoKickStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String FILE_NAME = "throwerlist_uuids.json";
+    private static final String REMOTE_FILE_NAME = "remoteuuids.json";
+    private static final String BLACKLIST_FILE_NAME = "throwerlist_blacklist.json";
 
     private AutoKickStore() {}
 
     public static Set<UUID> loadLocalUuids() {
+        return loadUuids(listPath());
+    }
+
+    public static void saveLocalUuids(Set<UUID> uuids) throws IOException {
+        saveUuids(listPath(), uuids);
+    }
+
+    public static Set<UUID> loadRemoteUuids() {
+        return loadUuids(remoteListPath());
+    }
+
+    public static void saveRemoteUuids(Set<UUID> uuids) throws IOException {
+        saveUuids(remoteListPath(), uuids);
+    }
+
+    public static Set<UUID> loadBlacklistUuids() {
+        return loadUuids(blacklistPath());
+    }
+
+    public static void saveBlacklistUuids(Set<UUID> uuids) throws IOException {
+        saveUuids(blacklistPath(), uuids);
+    }
+
+    private static Set<UUID> loadUuids(Path file) {
         Set<UUID> out = new LinkedHashSet<>();
-        Path file = listPath();
         if (!Files.exists(file)) {
             return out;
         }
@@ -41,8 +66,7 @@ public final class AutoKickStore {
         return out;
     }
 
-    public static void saveLocalUuids(Set<UUID> uuids) throws IOException {
-        Path file = listPath();
+    private static void saveUuids(Path file, Set<UUID> uuids) throws IOException {
         Files.createDirectories(file.getParent());
         JsonArray array = new JsonArray();
         for (UUID uuid : uuids) {
@@ -65,5 +89,13 @@ public final class AutoKickStore {
 
     private static Path listPath() {
         return ThrowerListConfig.getConfigDir().resolve(FILE_NAME);
+    }
+
+    private static Path remoteListPath() {
+        return ThrowerListConfig.getConfigDir().resolve(REMOTE_FILE_NAME);
+    }
+
+    private static Path blacklistPath() {
+        return ThrowerListConfig.getConfigDir().resolve(BLACKLIST_FILE_NAME);
     }
 }
