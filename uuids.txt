@@ -1,4 +1,8 @@
-# ThrowerList remote UUID list
-# One UUID per line, lines starting with # are ignored.
-# Example:
-# 12345678-1234-1234-1234-123456789abc
+5d9bdf57-df5b-477b-bf11-43a07b3d1522
+01cb8902-96d6-48bd-88d5-11a7ace45823
+e5dbe4f7-2deb-4efd-bdbc-577f3caee327
+1a50f32a-92c2-4cb2-a890-7135e6ab5fe9
+b03b658f-c49f-48a7-b203-f25bf0592f48
+bea85bbb-a92b-4e13-b7b3-1e12c50e2660
+bd66b38c-f21e-455c-9935-99237b0ae826
+af9d2bd7-1595-456c-9661-447708ca4f80
