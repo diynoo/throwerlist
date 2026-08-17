@@ -114,16 +114,20 @@ public final class ThrowerListClient implements ClientModInitializer {
             if (!localUuids.isEmpty()) {
                 sendFeedback(ctx.getSource(), "§a§lLocal:");
                 for (var uuid : localUuids) {
-                    String name = AutoKickManager.INSTANCE.getName(uuid);
-                    sendFeedback(ctx.getSource(), "§7 - " + name);
+                    String name = AutoKickManager.INSTANCE.resolveName(uuid);
+                    if (name != null) {
+                        sendFeedback(ctx.getSource(), "§7 - " + name);
+                    }
                 }
             }
             
             if (!remoteUuids.isEmpty()) {
                 sendFeedback(ctx.getSource(), "§b§lRemote:");
                 for (var uuid : remoteUuids) {
-                    String name = AutoKickManager.INSTANCE.getName(uuid);
-                    sendFeedback(ctx.getSource(), "§7 - " + name);
+                    String name = AutoKickManager.INSTANCE.resolveName(uuid);
+                    if (name != null) {
+                        sendFeedback(ctx.getSource(), "§7 - " + name);
+                    }
                 }
             }
         }

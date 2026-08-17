@@ -138,6 +138,21 @@ public final class AutoKickManager {
     public Set<UUID> getRemoteUuids() { return new LinkedHashSet<>(remoteUuids); }
     public String getName(UUID uuid) { return nameCache.getOrDefault(uuid, uuid.toString()); }
 
+    public String resolveName(UUID uuid) {
+        String cached = nameCache.get(uuid);
+        if (cached != null && !cached.isBlank()) return cached;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null && client.player.connection != null) {
+            for (PlayerInfo info : client.player.connection.getOnlinePlayers()) {
+                if (info.getProfile().id().equals(uuid)) {
+                    nameCache.put(uuid, info.getProfile().name());
+                    return info.getProfile().name();
+                }
+            }
+        }
+        return null;
+    }
+
     public static UUID resolveUuidFromTab(String name) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) return null;
