@@ -29,11 +29,11 @@ public final class AutoKickManager {
     public static final AutoKickManager INSTANCE = new AutoKickManager();
 
     private static final Pattern PARTY_JOIN_PATTERN = Pattern.compile(
-        "(?:\\[[^\\]]+\\]\\s*)*([A-Za-z0-9_]{3,16})\\s+joined\\s+the\\s+party\\.?$",
+        "(?:\\[[^\\]]+\\]\\s*)*([A-Za-z0-9_]{3,16})\\s+joined\\s+the\\s+party\\s*[!.]?\\s*$",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern DUNGEON_JOIN_PATTERN = Pattern.compile(
-        "(?:\\[[^\\]]+\\]\\s*)*([A-Za-z0-9_]{3,16})\\s+joined\\s+the\\s+dungeon\\s+group!\\s*(?:\\([^)]*\\))?$",
+        "(?:\\[[^\\]]+\\]\\s*)*([A-Za-z0-9_]{3,16})\\s+joined\\s+the\\s+dungeon\\s+group\\s*[!.]?\\s*(?:\\([^)]*\\))?\\s*[!.]?\\s*$",
         Pattern.CASE_INSENSITIVE
     );
 
@@ -148,13 +148,16 @@ public final class AutoKickManager {
         nameCache.put(uuid, name);
 
         boolean shouldKick = localUuids.contains(uuid) || remoteUuids.contains(uuid);
+        sendDebug(name + " (" + uuid + ") join detected, shouldKick=" + shouldKick
+            + " (local=" + localUuids.contains(uuid) + ", remote=" + remoteUuids.contains(uuid) + ")");
         if (shouldKick && !pendingKicks.containsKey(uuid)) {
             pendingKicks.put(uuid, new PendingKick(name, ThrowerListConfig.kickDelayTicks));
+            sendDebug("Queued kick for " + name);
         }
     }
 
     public void onChatMessage(String message) {
-        if (message == null || message.isBlank()) return;
+        if (message == null || message.isBlank() || message.startsWith("[TL]")) return;
 
         boolean isCopiedMessage = isPlayerChatMessage(message);
         if (isCopiedMessage && !ThrowerListConfig.debug) {
@@ -166,7 +169,11 @@ public final class AutoKickManager {
         }
 
         String name = parseJoinName(message);
-        if (name == null) return;
+        if (name == null) {
+            sendDebug("No join trigger matched");
+            return;
+        }
+        sendDebug("Parsed join name: " + name);
 
         UUID uuid = resolveUuidFromTab(name);
         if (uuid != null) {
@@ -176,14 +183,20 @@ public final class AutoKickManager {
         resolveUuidFromNameAsync(name, resolved -> {
             if (resolved != null) {
                 onPlayerJoin(name, resolved);
+            } else {
+                sendDebug("Could not resolve UUID for " + name);
             }
         });
     }
 
     public void onGameMessage(String message) {
-        if (message == null || message.isBlank()) return;
+        if (message == null || message.isBlank() || message.startsWith("[TL]")) return;
         String name = parseJoinName(message);
-        if (name == null) return;
+        if (name == null) {
+            sendDebug("No join trigger matched");
+            return;
+        }
+        sendDebug("Parsed join name: " + name);
 
         UUID uuid = resolveUuidFromTab(name);
         if (uuid != null) {
@@ -193,17 +206,19 @@ public final class AutoKickManager {
         resolveUuidFromNameAsync(name, resolved -> {
             if (resolved != null) {
                 onPlayerJoin(name, resolved);
+            } else {
+                sendDebug("Could not resolve UUID for " + name);
             }
         });
     }
 
     public void onPlayerChatMessage(String message) {
-        if (message == null || message.isBlank()) return;
+        if (message == null || message.isBlank() || message.startsWith("[TL]")) return;
         if (!ThrowerListConfig.debug) {
-            sendDebug("Ignoring player chat message (debug off): " + message);
+            sendDebug("Ignoring player chat message (debug off)");
             return;
         }
-        sendDebug("Debug mode: scanning player chat message: " + message);
+        sendDebug("Debug mode: scanning player chat message");
         onChatMessage(message);
     }
 
