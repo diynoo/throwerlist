@@ -116,13 +116,20 @@ public final class AutoKickManager {
                     Minecraft client = Minecraft.getInstance();
                     if (client.player != null) {
                         client.execute(() -> client.player.sendSystemMessage(
-                            Component.literal("[DA] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
+                            Component.literal("[TL] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
                                 .append(Component.literal("Fetched " + fetched.size() + " remote UUIDs").withStyle(net.minecraft.ChatFormatting.DARK_GREEN))
                         ));
                     }
                 }
             } catch (Exception e) {
-                // Silent fail for auto-refresh, log for manual refresh
+                // Silent fail for auto-refresh
+                Minecraft client = Minecraft.getInstance();
+                if (client.player != null) {
+                    client.execute(() -> client.player.sendSystemMessage(
+                        Component.literal("[TL] ").withStyle(net.minecraft.ChatFormatting.DARK_GREEN)
+                            .append(Component.literal("Failed to fetch remote UUIDs: " + e.getMessage()).withStyle(net.minecraft.ChatFormatting.RED))
+                    ));
+                }
             }
         });
     }
